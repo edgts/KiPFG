@@ -11,5 +11,5 @@ Generates the following files:
 * Fabrication files with html bom
 
 ## Info for me
-* Activate venv with `source pfgk/bin/activate`
+* Activate venv with `source kipfg/bin/activate`
 * Deactivate venv with `deactivate`

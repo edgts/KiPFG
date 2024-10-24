@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "KiPFG"
+version = "0.0.1"
+authors = [
+    { name="Edward Dinu", email="mail@edwarddinu.com" },
+]
+description = "A production file generator for KiCad"
+readme = "README.md"
+requires-python = ">=3.13.0"
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
