@@ -9,3 +9,7 @@ Generates the following files:
 * Gerber files
 * Pick and place files
 * Fabrication files with html bom
+
+## Info for me
+* Activate venv with `source pfgk/bin/activate`
+* Deactivate venv with `deactivate`
