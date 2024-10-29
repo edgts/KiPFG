@@ -57,8 +57,7 @@ def exportPdfPcb(input_file, layers, options):
         'F.Silkscreen',
         'B.Silkscreen',
         'F.Mask',
-        'B.Mask',
-        'Edge.Cuts'
+        'B.Mask'
     ]
 
     pcb_pdf_layers = layers + pcb_basic_pdf_layers
@@ -71,7 +70,7 @@ def exportPdfPcb(input_file, layers, options):
         output = os.path.join(output_path, output_filename)
 
         args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '-l']
-        args += [layer, '--output', output, input_file]
+        args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer, '--output', output, input_file]
 
         subprocess.call(args)
 
@@ -107,6 +106,59 @@ def exportDrc(input_file):
     subprocess.call(args)
 
 
+def exportGerbers(input_file, copper_layer_list):
+
+    if not os.path.isdir(output_path_gerber):
+        os.makedirs(output_path_gerber)
+
+    pcb_basic_pdf_layers = [
+        'F.Paste',
+        'B.Paste',
+        'F.Silkscreen',
+        'B.Silkscreen',
+        'F.Mask',
+        'B.Mask',
+        'Edge.Cuts'
+    ]
+
+    gerber_layers = copper_layer_list + pcb_basic_pdf_layers
+    print(gerber_layers)
+
+    args = [
+            "kicad-cli",
+            "pcb",
+            "export",
+            "gerbers",
+            "--layers",
+            ",".join(gerber_layers),
+            "--use-drill-file-origin",
+            "--no-protel-ext",
+            "--output",
+            os.path.join(os.getcwd(), output_path_gerber),
+            input_file
+    ]
+
+    subprocess.call(args)
+
+    args = [
+            "kicad-cli",
+            "pcb",
+            "export",
+            "drill",
+            "--drill-origin",
+            "plot",
+            "--excellon-separate-th",
+            "--generate-map",
+            "--map-format",
+            "gerberx2",
+            "--output",
+            os.path.join(os.getcwd(), output_path_gerber),
+            input_file
+    ]
+
+    subprocess.call(args)
+
+
 input_file_pcb = project_name + ".kicad_pcb"
 input_file_sch = project_name + ".kicad_sch"
 
@@ -117,3 +169,4 @@ pcb_copper_layer_list = getCopperLayerNames(parsed_pcb)
 
 exportPdfPcb(input_file_pcb, pcb_copper_layer_list, None)
 # exportDrc(input_file_pcb)
+# exportGerbers(input_file_pcb, pcb_copper_layer_list)
