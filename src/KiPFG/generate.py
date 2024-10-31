@@ -13,8 +13,19 @@ parser = argparse.ArgumentParser(
         description="Generate production files for KiCad"
 )
 
-parser.add_argument('-s', '--schematic-file', help="KiCad schematic file", type=str)
-parser.add_argument('-p', '--pcb-file', help="KiCad pcb file", type=str)
+parser.add_argument(
+    '-s',
+    '--schematic-file',
+    help="KiCad schematic file",
+    type=str
+)
+
+parser.add_argument(
+    '-p',
+    '--pcb-file',
+    help="KiCad pcb file",
+    type=str
+)
 
 project_name = None
 
@@ -23,6 +34,7 @@ output_path_gerber = "FAB"
 output_path_bom = "BOM"
 output_path_3d = "3D"
 output_path_rule_checks = "RCH"
+
 
 def getProjectName():
 
@@ -35,9 +47,11 @@ def getProjectName():
 
     return project_name
 
+
 def rreplace(s, old, new, occurrence):
     li = s.rsplit(old, occurrence)
     return new.join(li)
+
 
 def sexParse(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -51,40 +65,28 @@ def getCopperLayerNames(data):
     layers = []
 
     for element in data:
-        if isinstance(element, list):
-            if len(element) > 0:
-                if isinstance(element[0], sexpdata.Symbol):
-                    match str(element[0]):
-                        case "layers":
-                            for layer in element:
-                                if isinstance(layer[2], sexpdata.Symbol):
-                                    if layer[1].endswith(".Cu"):
-                                        layers.append(layer[1])
+        if element[0] == "layers":
+            for layer in element:
+                if layer[1].endswith(".Cu"):
+                    layers.append(layer[1])
+
     return layers
+
 
 def getRevision(data):
     revision = None
 
     for element in data:
-        if isinstance(element, list):
-            if len(element) > 0:
-                if isinstance(element[0], sexpdata.Symbol):
-                    match str(element[0]):
-                        case "title_block":
-                            for title_block_element in element:
-                                if isinstance(title_block_element, list):
-                                    if len(title_block_element) > 0:
-                                        if isinstance(title_block_element[0], sexpdata.Symbol):
-                                            match str(title_block_element[0]):
-                                                case "rev":
-                                                    revision = title_block_element[1]
+        if element[0] == "title_blocK":
+            for title_block_element in element:
+                if title_block_element[0] == "rev":
+                    revision = title_block_element[1]
 
     return revision
 
 
 def exportPdfPcb(input_file, layers, revision):
     print("==== Export PCB PDF - Start ====")
-
 
     if not os.path.isdir(output_path_pdf):
         os.makedirs(output_path_pdf)
@@ -110,7 +112,8 @@ def exportPdfPcb(input_file, layers, revision):
         output = os.path.join(output_path, output_filename)
 
         args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '-l']
-        args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer, '--output', output, input_file]
+        args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer,
+                 '--output', output, input_file]
 
         subprocess.call(args)
 
@@ -133,7 +136,7 @@ def exportPdfPcb(input_file, layers, revision):
 
         if layer == "F.Fab":
             continue
-        
+
         if layer == "B.Fab":
             continue
 
@@ -143,7 +146,6 @@ def exportPdfPcb(input_file, layers, revision):
         os.remove(pdf_file)
 
     print("==== Export PCB PDF - End ====")
-
 
 
 def exportDrc(input_file, revision):
@@ -161,7 +163,11 @@ def exportDrc(input_file, revision):
             "json",
             "--severity-warning",
             "--output",
-            os.path.join(os.getcwd(), output_path_rule_checks, project_name + "_R" + revision + "_DRC.json"),
+            os.path.join(
+                os.getcwd(),
+                output_path_rule_checks,
+                project_name + "_R" + revision + "_DRC.json"
+            ),
             input_file
     ]
 
@@ -171,7 +177,6 @@ def exportDrc(input_file, revision):
 
 def exportGerbers(input_file, copper_layer_list, revision):
     print("==== Export Gerber - Start ====")
-
 
     if not os.path.isdir(output_path_gerber):
         os.makedirs(output_path_gerber)
@@ -217,7 +222,6 @@ def exportGerbers(input_file, copper_layer_list, revision):
 
             os.rename(filename, new_filename)
 
-
     # Drill files
     args = [
             "kicad-cli",
@@ -237,7 +241,6 @@ def exportGerbers(input_file, copper_layer_list, revision):
 
     subprocess.call(args)
 
-
     filenames = [
         os.path.join(os.getcwd(), output_path_gerber, project_name + "-NPTH.drl"),
         os.path.join(os.getcwd(), output_path_gerber, project_name + "-NPTH-drl_map.gbr"),
@@ -255,7 +258,6 @@ def exportGerbers(input_file, copper_layer_list, revision):
                 os.remove(new_filename)
 
             os.rename(filename, new_filename)
-
 
     print("==== Export Gerber - End ====")
 
@@ -309,7 +311,6 @@ def exportPickAndPlace(input_file, revision):
 
 def exportStep(input_file, revision):
     print("==== Export 3D - Start ====")
-
 
     if not os.path.isdir(output_path_3d):
         os.makedirs(output_path_3d)
@@ -401,11 +402,11 @@ parsed_sch = sexParse(schematic_file)
 sch_revision = getRevision(parsed_sch)
 
 # if sch_revision is pcb_revision:
-    
+
 #     revision = sch_revision
 
 #     # PCB
-    # exportPdfPcb(input_file_pcb, pcb_copper_layer_list, revision)
+      # exportPdfPcb(input_file_pcb, pcb_copper_layer_list, revision)
 #     exportDrc(input_file_pcb, revision)
 #     exportGerbers(input_file_pcb, pcb_copper_layer_list, revision)
 #     exportPickAndPlace(input_file_pcb, revision)
