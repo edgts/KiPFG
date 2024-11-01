@@ -8,26 +8,9 @@ import subprocess
 import argparse
 import fitz
 
-parser = argparse.ArgumentParser(
-        prog="KiPFG",
-        description="Generate production files for KiCad"
-)
+from project_information import ProjectInformation
 
-parser.add_argument(
-    '-s',
-    '--schematic-file',
-    help="KiCad schematic file",
-    type=str
-)
-
-parser.add_argument(
-    '-p',
-    '--pcb-file',
-    help="KiCad pcb file",
-    type=str
-)
-
-project_name = None
+class GeneratorError(Exception): pass
 
 output_path_pdf = "PDF"
 output_path_gerber = "FAB"
@@ -36,57 +19,15 @@ output_path_3d = "3D"
 output_path_rule_checks = "RCH"
 
 
-def getProjectName():
-
-    project_name = None
-
-    for file in os.listdir(os.getcwd()):
-        if file.endswith(".kicad_pro"):
-            project_name = file.replace(".kicad_pro", "")
-            break
-
-    return project_name
-
-
 def rreplace(s, old, new, occurrence):
     li = s.rsplit(old, occurrence)
     return new.join(li)
 
 
-def sexParse(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = f.read()
-        parsed_data = sexpdata.loads(data)
-        return parsed_data
-
-
-def getCopperLayerNames(data):
-
-    layers = []
-
-    for element in data:
-        if element[0] == "layers":
-            for layer in element:
-                if layer[1].endswith(".Cu"):
-                    layers.append(layer[1])
-
-    return layers
-
-
-def getRevision(data):
-    revision = None
-
-    for element in data:
-        if element[0] == "title_blocK":
-            for title_block_element in element:
-                if title_block_element[0] == "rev":
-                    revision = title_block_element[1]
-
-    return revision
-
-
 def exportPdfPcb(input_file, layers, revision):
-    print("==== Export PCB PDF - Start ====")
+    print("* Generating pcb pdf files...", end="")
+
+    pcb_name = getFilenameWithouthExtension(input_file)
 
     if not os.path.isdir(output_path_pdf):
         os.makedirs(output_path_pdf)
@@ -108,28 +49,28 @@ def exportPdfPcb(input_file, layers, revision):
     for layer in pcb_pdf_layers:
 
         output_path = os.path.join(os.getcwd(), output_path_pdf)
-        output_filename = project_name + '_R' + revision + '_' + layer + '.pdf'
+        output_filename = pcb_name + '_R' + revision + '_' + layer + '.pdf'
         output = os.path.join(output_path, output_filename)
 
         args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '-l']
         args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer,
                  '--output', output, input_file]
 
-        subprocess.call(args)
+        subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     result = fitz.open()
 
     for layer in pcb_pdf_layers:
 
         output_path = os.path.join(os.getcwd(), output_path_pdf)
-        output_filename = project_name + '_R' + revision + '_' + layer + '.pdf'
+        output_filename = pcb_name + '_R' + revision + '_' + layer + '.pdf'
         pdf_file = os.path.join(output_path, output_filename)
 
         with fitz.open(pdf_file) as mfile:
             result.insert_pdf(mfile)
 
     pdf_save_path = os.path.join(os.getcwd(), output_path_pdf)
-    pdf_save_path = os.path.join(pdf_save_path, project_name + '_R' + revision + '_PCB.pdf')
+    pdf_save_path = os.path.join(pdf_save_path, pcb_name + '_R' + revision + '_PCB.pdf')
     result.save(pdf_save_path)
 
     for layer in pcb_pdf_layers:
@@ -141,15 +82,15 @@ def exportPdfPcb(input_file, layers, revision):
             continue
 
         output_path = os.path.join(os.getcwd(), output_path_pdf)
-        output_filename = project_name + '_R' + revision + '_' + layer + '.pdf'
+        output_filename = pcb_name + '_R' + revision + '_' + layer + '.pdf'
         pdf_file = os.path.join(output_path, output_filename)
         os.remove(pdf_file)
 
-    print("==== Export PCB PDF - End ====")
+    print("Done.\n")
 
 
 def exportDrc(input_file, revision):
-    print("==== DRC - Start ====")
+    print("Executing design rule check...", end="")
 
     if not os.path.isdir(output_path_rule_checks):
         os.makedirs(output_path_rule_checks)
@@ -171,12 +112,27 @@ def exportDrc(input_file, revision):
             input_file
     ]
 
-    subprocess.call(args)
-    print("==== DRC - End ====")
+    output = subprocess.check_output(args).decode("utf-8")
+
+    violations = re.search(r"Found (\d+) violations", output)
+    unconnected_items = re.search(r"Found (\d+) unconnected items", output)
+    schematic_parity_issues = re.search(r"Found (\d+) schematic parity issues", output)
+
+    num_violations = int(violations.group(1)) if violations else 0
+    num_unconnected_items = int(unconnected_items.group(1)) if unconnected_items else 0
+    num_schematic_parity_issues = int(schematic_parity_issues.group(1)) if schematic_parity_issues else 0
+
+    if not num_violations and not num_unconnected_items and not num_schematic_parity_issues:
+        print("Done.\n")
+    else:
+        print("Error.")
+        print(f"Found {num_violations} violations, {num_unconnected_items} unconnected items and {num_schematic_parity_issues} schematic parity issues.\n")
+        raise GeneratorError("Design rule check has errors.")
+    
 
 
 def exportGerbers(input_file, copper_layer_list, revision):
-    print("==== Export Gerber - Start ====")
+    print("* Generating gerber files...", end="")
 
     if not os.path.isdir(output_path_gerber):
         os.makedirs(output_path_gerber)
@@ -210,7 +166,7 @@ def exportGerbers(input_file, copper_layer_list, revision):
             input_file
     ]
 
-    subprocess.call(args)
+    subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     for layer in gerber_layers:
         filename = os.path.join(os.getcwd(), output_path_gerber, project_name + "-" + layer.replace(".", "_") + ".gbr")
@@ -239,7 +195,7 @@ def exportGerbers(input_file, copper_layer_list, revision):
             input_file
     ]
 
-    subprocess.call(args)
+    subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     filenames = [
         os.path.join(os.getcwd(), output_path_gerber, project_name + "-NPTH.drl"),
@@ -259,11 +215,11 @@ def exportGerbers(input_file, copper_layer_list, revision):
 
             os.rename(filename, new_filename)
 
-    print("==== Export Gerber - End ====")
+    print("Done.\n")
 
 
 def exportPickAndPlace(input_file, revision):
-    print("==== Export Pick and place - Start ====")
+    print("* Generating pick and place files...", end="")
 
     if not os.path.isdir(output_path_gerber):
         os.makedirs(output_path_gerber)
@@ -285,7 +241,7 @@ def exportPickAndPlace(input_file, revision):
         input_file
     ]
 
-    subprocess.call(args)
+    subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     args = [
         "kicad-cli",
@@ -305,12 +261,12 @@ def exportPickAndPlace(input_file, revision):
         input_file
     ]
 
-    subprocess.call(args)
-    print("==== Export Pick and place - End ====")
+    subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    print("Done.\n")
 
 
 def exportStep(input_file, revision):
-    print("==== Export 3D - Start ====")
+    print("* Generating 3D step file...", end="")
 
     if not os.path.isdir(output_path_3d):
         os.makedirs(output_path_3d)
@@ -328,16 +284,15 @@ def exportStep(input_file, revision):
         input_file
     ]
 
-    subprocess.call(args)
-    print("==== Export 3D - End ====")
+    subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+    print("Done.\n")
 
 def getFilenameWithouthExtension(filename):
     return os.path.splitext(os.path.basename(filename))[0]
 
-def exportPdfSch(input_file, revision):
-    print("==== Export PDF SCH - Start ====")
-
-    schematic_name = getFilenameWithouthExtension(input_file)
+def exportPdfSch(schematic_file_name, revision):
+    print("* Generating schematic pdf file...", end="")
 
     if not os.path.isdir(output_path_pdf):
         os.makedirs(output_path_pdf)
@@ -348,72 +303,55 @@ def exportPdfSch(input_file, revision):
         "export",
         "pdf",
         "--output",
-        os.path.join(os.getcwd(), output_path_pdf, schematic_name + "_R" + revision + "_SCH.pdf"),
-        input_file,
+        os.path.join(os.getcwd(), output_path_pdf, project_name + "_R" + revision + "_SCH.pdf"),
+        schematic_file_name
     ]
 
-    subprocess.call(args)
+    output = subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    if not output:
+        print("Done.\n")
+    else:
+        print("Error.\n")
 
-    print("==== Export PDF SCH - End ====")
-    
 
 # def exportBom(input_file, revision):
 
 
-args = parser.parse_args()
+prin = ProjectInformation()
+project_name = getFilenameWithouthExtension(prin.project_file_name)
 
-if args.schematic_file:
-    print("schematic file name passed via cli")
-    schematic_file_name = re.search(r'\b\w+\.kicad_sch\b', args.schematic_file)
+cli_args = prin.cli_arg_parser.parse_args()
 
-    if schematic_file_name:
-        schematic_file_name = schematic_file_name.group().upper()
-    else:
-        print("Wrongly formatted schematic filename provided: '" + args.schematic_file + "'. Should be 'FILENAME.kicad_sch'.")
+if not cli_args.no_erc or not cli_args.no_drc:
+    print("====================== Rule checks =========================\n")
+
+if not cli_args.no_drc:
+    try:
+        exportDrc(prin.pcb_file_name, prin.revision)
+    except GeneratorError as e:
+        print(f"Error: {e}")
+        print("Terminating...")
         sys.exit()
 
-    if os.path.exists(os.path.join(os.getcwd(), )):
-        schematic_file = schematic_file_name
-    else:
-        print("No kicad schematic under the name '" + schematic_file_name + "' could be found. Terminating")
+# TODO: implement exportErc
+if not cli_args.no_erc:
+    try:
+        # put erc into this also
+        print("Executing ERC...Done.\n")
+        # exportErc(prin.pcb_file_name, prin.revision)
+    except GeneratorError as e:
+        print(f"Error: {e}")
+        print("Terminating...")
         sys.exit()
-else:
-    print("project name automatically")
-    project_name = getProjectName()
 
+print("======================= Generate ===========================\n")
 
-# if not project_name:
-#     print("Error: No kicad project file could be found. Terminating.")
-#     sys.exit()
+# Schematic
+exportPdfSch(prin.schematic_file_name, prin.revision)
 
-print("Schematic name: '" + schematic_file + "'")
-
-
-# input_file_pcb = project_name + ".kicad_pcb"
-# input_file_sch = project_name + ".kicad_sch"
-
-parsed_sch = sexParse(schematic_file)
-# parsed_pcb = sexParse(input_file_pcb)
-
-# pcb_copper_layer_list = getCopperLayerNames(parsed_pcb)
-
-# pcb_revision = getRevision(parsed_pcb)
-sch_revision = getRevision(parsed_sch)
-
-# if sch_revision is pcb_revision:
-
-#     revision = sch_revision
-
-#     # PCB
-      # exportPdfPcb(input_file_pcb, pcb_copper_layer_list, revision)
-#     exportDrc(input_file_pcb, revision)
-#     exportGerbers(input_file_pcb, pcb_copper_layer_list, revision)
-#     exportPickAndPlace(input_file_pcb, revision)
-#     exportStep(input_file_pcb, revision)
-
-#     # SCH
-exportPdfSch(schematic_file, sch_revision)
-
-# else:
-#     print("Schematic and PCB revision don't match.\nSCH Revision: " + sch_revision + "\nPCB Revision: " + pcb_revision + "\nAbort...")
+# PCB
+exportPdfPcb(prin.pcb_file_name, prin.copper_layers, prin.revision)
+exportGerbers(prin.pcb_file_name, prin.copper_layers, prin.revision)
+exportPickAndPlace(prin.pcb_file_name, prin.revision)
+exportStep(prin.pcb_file_name, prin.revision)
