@@ -89,8 +89,44 @@ def exportPdfPcb(input_file, layers, revision):
     print("Done.\n")
 
 
+def exportErc(input_file, revision):
+    print("* Executing electrical rule check...", end="")
+
+    if not os.path.isdir(output_path_rule_checks):
+        os.makedirs(output_path_rule_checks)
+
+    args = [
+        "kicad-cli",
+        "sch",
+        "erc",
+        "--format",
+        "json",
+        "--severity-warning",
+        "--output",
+        os.path.join(
+            os.getcwd(),
+            output_path_rule_checks,
+            project_name + "_R" + revision + "_ERC.json"
+        ),
+        input_file
+    ]
+
+    output = subprocess.check_output(args).decode("utf-8")
+
+    violations = re.search(r"Found (\d+) violations", output)
+
+    num_violations = int(violations.group(1)) if violations else 0
+
+    if not num_violations:
+        print("Done.\n")
+    else:
+        print("Error.")
+        print(f"  Found {num_violations} violations.\n")
+        raise GeneratorError("Electrical rule check has errors.")
+
+
 def exportDrc(input_file, revision):
-    print("Executing design rule check...", end="")
+    print("* Executing design rule check...", end="")
 
     if not os.path.isdir(output_path_rule_checks):
         os.makedirs(output_path_rule_checks)
@@ -126,9 +162,8 @@ def exportDrc(input_file, revision):
         print("Done.\n")
     else:
         print("Error.")
-        print(f"Found {num_violations} violations, {num_unconnected_items} unconnected items and {num_schematic_parity_issues} schematic parity issues.\n")
+        print(f"  Found {num_violations} violations, {num_unconnected_items} unconnected items and {num_schematic_parity_issues} schematic parity issues.\n")
         raise GeneratorError("Design rule check has errors.")
-    
 
 
 def exportGerbers(input_file, copper_layer_list, revision):
@@ -315,7 +350,40 @@ def exportPdfSch(schematic_file_name, revision):
         print("Error.\n")
 
 
-# def exportBom(input_file, revision):
+def exportBom(schematic_file_name, revision):
+    print("* Export bill of materials...", end="")
+
+    if not os.path.isdir(output_path_bom):
+        os.makedirs(output_path_bom)
+
+    args = [
+        "kicad-cli",
+        "sch",
+        "export",
+        "bom",
+        "--ref-range-delimiter",
+        "",
+        "--fields",
+        "${QUANTITY},Reference,Value,Footprint,Description,Tol/Rat/Mat,Manufacturer,Order Number,fit_field",
+        "--labels",
+        "Quantity,Reference,Value,Footprint,Description,Tol/Rat/Mat,Manufacturer,Order Number,fit_field",
+        "--group-by",
+        "Value,Footprint,fit_field",
+        "--output",
+        os.path.join(
+            os.getcwd(),
+            output_path_bom,
+            project_name + "_R" + revision + "_BOM.csv"
+        ),
+        schematic_file_name
+    ]
+
+    output = subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    if not output:
+        print("Done.\n")
+    else:
+        print("Error.\n")
 
 
 prin = ProjectInformation()
@@ -334,12 +402,10 @@ if not cli_args.no_drc:
         print("Terminating...")
         sys.exit()
 
-# TODO: implement exportErc
 if not cli_args.no_erc:
     try:
         # put erc into this also
-        print("Executing ERC...Done.\n")
-        # exportErc(prin.pcb_file_name, prin.revision)
+        exportErc(prin.schematic_file_name, prin.revision)
     except GeneratorError as e:
         print(f"Error: {e}")
         print("Terminating...")
@@ -349,6 +415,7 @@ print("======================= Generate ===========================\n")
 
 # Schematic
 exportPdfSch(prin.schematic_file_name, prin.revision)
+exportBom(prin.schematic_file_name, prin.revision)
 
 # PCB
 exportPdfPcb(prin.pcb_file_name, prin.copper_layers, prin.revision)
