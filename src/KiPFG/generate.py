@@ -3,20 +3,20 @@
 import os
 import re
 import sys
-import sexpdata
 import subprocess
-import argparse
 import fitz
 
 from project_information import ProjectInformation
-
-class GeneratorError(Exception): pass
 
 output_path_pdf = "PDF"
 output_path_gerber = "FAB"
 output_path_bom = "BOM"
 output_path_3d = "3D"
 output_path_rule_checks = "RCH"
+
+
+class GeneratorError(Exception):
+    pass
 
 
 def rreplace(s, old, new, occurrence):
@@ -56,7 +56,8 @@ def exportPdfPcb(input_file, layers, revision):
         args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer,
                  '--output', output, input_file]
 
-        subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        subprocess.call(args, stdout=subprocess.DEVNULL,
+                        stderr=subprocess.STDOUT)
 
     result = fitz.open()
 
@@ -70,7 +71,9 @@ def exportPdfPcb(input_file, layers, revision):
             result.insert_pdf(mfile)
 
     pdf_save_path = os.path.join(os.getcwd(), output_path_pdf)
-    pdf_save_path = os.path.join(pdf_save_path, pcb_name + '_R' + revision + '_PCB.pdf')
+    pdf_save_path = os.path.join(pdf_save_path, pcb_name + '_R' + revision +
+                                 '_PCB.pdf')
+
     result.save(pdf_save_path)
 
     for layer in pcb_pdf_layers:
@@ -151,18 +154,21 @@ def exportDrc(input_file, revision):
     output = subprocess.check_output(args).decode("utf-8")
 
     violations = re.search(r"Found (\d+) violations", output)
-    unconnected_items = re.search(r"Found (\d+) unconnected items", output)
-    schematic_parity_issues = re.search(r"Found (\d+) schematic parity issues", output)
+    nc_items = re.search(r"Found (\d+) unconnected items", output)
+    schpissue = re.search(r"Found (\d+) schematic parity issues", output)
 
     num_violations = int(violations.group(1)) if violations else 0
-    num_unconnected_items = int(unconnected_items.group(1)) if unconnected_items else 0
-    num_schematic_parity_issues = int(schematic_parity_issues.group(1)) if schematic_parity_issues else 0
+    num_nc_items = int(nc_items.group(1)) if nc_items else 0
+    num_schpissue = int(schpissue.group(1)) if schpissue else 0
 
-    if not num_violations and not num_unconnected_items and not num_schematic_parity_issues:
+    if not num_violations and not num_nc_items and not num_schpissue:
         print("Done.\n")
     else:
         print("Error.")
-        print(f"  Found {num_violations} violations, {num_unconnected_items} unconnected items and {num_schematic_parity_issues} schematic parity issues.\n")
+        print(f"  Found {num_violations} violations, \
+              {num_nc_items} unconnected items and {num_schpissue} schematic \
+              parity issues.\n")
+
         raise GeneratorError("Design rule check has errors.")
 
 
@@ -204,8 +210,13 @@ def exportGerbers(input_file, copper_layer_list, revision):
     subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     for layer in gerber_layers:
-        filename = os.path.join(os.getcwd(), output_path_gerber, project_name + "-" + layer.replace(".", "_") + ".gbr")
-        new_filename = rreplace(filename, project_name, project_name + "_R" + revision, 1)
+        filename = os.path.join(os.getcwd(),
+                                output_path_gerber,
+                                project_name + "-" + layer.replace(".", "_") +
+                                ".gbr")
+
+        new_filename = rreplace(filename, project_name, project_name + "_R" +
+                                revision, 1)
 
         if os.path.isfile(filename):
             if os.path.isfile(new_filename):
@@ -233,16 +244,40 @@ def exportGerbers(input_file, copper_layer_list, revision):
     subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     filenames = [
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "-NPTH.drl"),
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "-NPTH-drl_map.gbr"),
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "-PTH.drl"),
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "-PTH-drl_map.gbr"),
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "-job.gbrjob"),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "-NPTH.drl"
+        ),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "-NPTH-drl_map.gbr"
+        ),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "-PTH.drl"
+        ),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "-PTH-drl_map.gbr"
+        ),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "-job.gbrjob"
+        ),
     ]
 
     for filename in filenames:
 
-        new_filename = rreplace(filename, project_name, project_name + "_R" + revision, 1)
+        new_filename = rreplace(
+            filename,
+            project_name,
+            project_name + "_R" + revision, 1
+        )
 
         if os.path.isfile(filename):
             if os.path.isfile(new_filename):
@@ -272,7 +307,11 @@ def exportPickAndPlace(input_file, revision):
         "mm",
         "--use-drill-file-origin",
         "--output",
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "_R" + revision + "-top-pos.csv"),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "_R" + revision + "-top-pos.csv"
+        ),
         input_file
     ]
 
@@ -292,7 +331,11 @@ def exportPickAndPlace(input_file, revision):
         "--use-drill-file-origin",
         "--smd-only",
         "--output",
-        os.path.join(os.getcwd(), output_path_gerber, project_name + "_R" + revision + "-bottom-pos.csv"),
+        os.path.join(
+            os.getcwd(),
+            output_path_gerber,
+            project_name + "_R" + revision + "-bottom-pos.csv"
+        ),
         input_file
     ]
 
@@ -315,7 +358,11 @@ def exportStep(input_file, revision):
         "--drill-origin",
         "--no-optimize-step",
         "--output",
-        os.path.join(os.getcwd(), output_path_3d, project_name + "_R" + revision + "_3D.step"),
+        os.path.join(
+            os.getcwd(),
+            output_path_3d,
+            project_name + "_R" + revision + "_3D.step"
+        ),
         input_file
     ]
 
@@ -323,8 +370,10 @@ def exportStep(input_file, revision):
 
     print("Done.\n")
 
+
 def getFilenameWithouthExtension(filename):
     return os.path.splitext(os.path.basename(filename))[0]
+
 
 def exportPdfSch(schematic_file_name, revision):
     print("* Generating schematic pdf file...", end="")
@@ -338,11 +387,19 @@ def exportPdfSch(schematic_file_name, revision):
         "export",
         "pdf",
         "--output",
-        os.path.join(os.getcwd(), output_path_pdf, project_name + "_R" + revision + "_SCH.pdf"),
+        os.path.join(
+            os.getcwd(),
+            output_path_pdf,
+            project_name + "_R" + revision + "_SCH.pdf"
+        ),
         schematic_file_name
     ]
 
-    output = subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    output = subprocess.call(
+        args,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
     if not output:
         print("Done.\n")
@@ -356,6 +413,30 @@ def exportBom(schematic_file_name, revision):
     if not os.path.isdir(output_path_bom):
         os.makedirs(output_path_bom)
 
+    fields_array = [
+        "${QUANTITY}",
+        "Reference",
+        "Value",
+        "Footprint",
+        "Description",
+        "Tol/Rat/Mat",
+        "Manufacturer",
+        "Order Number",
+        "fit_field",
+    ]
+
+    labels_array = [
+        "Quantity",
+        "Reference",
+        "Value",
+        "Footprint",
+        "Description",
+        "Tol/Rat/Mat",
+        "Manufacturer",
+        "Order Number",
+        "fit_field",
+    ]
+
     args = [
         "kicad-cli",
         "sch",
@@ -364,9 +445,9 @@ def exportBom(schematic_file_name, revision):
         "--ref-range-delimiter",
         "",
         "--fields",
-        "${QUANTITY},Reference,Value,Footprint,Description,Tol/Rat/Mat,Manufacturer,Order Number,fit_field",
+        ",".join(fields_array),
         "--labels",
-        "Quantity,Reference,Value,Footprint,Description,Tol/Rat/Mat,Manufacturer,Order Number,fit_field",
+        ",".join(labels_array),
         "--group-by",
         "Value,Footprint,fit_field",
         "--output",
@@ -378,7 +459,11 @@ def exportBom(schematic_file_name, revision):
         schematic_file_name
     ]
 
-    output = subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    output = subprocess.call(
+        args,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
     if not output:
         print("Done.\n")
@@ -422,3 +507,6 @@ exportPdfPcb(prin.pcb_file_name, prin.copper_layers, prin.revision)
 exportGerbers(prin.pcb_file_name, prin.copper_layers, prin.revision)
 exportPickAndPlace(prin.pcb_file_name, prin.revision)
 exportStep(prin.pcb_file_name, prin.revision)
+# exportAsm(prin.pcb_file_name, prin.revision)
+
+print("======================= Success ===========================\n")
