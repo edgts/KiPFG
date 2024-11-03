@@ -5,10 +5,11 @@ import sys
 import sexpdata
 
 
-class ProjectInformationError(Exception): pass
+class ProjectInformationError(Exception):
+    pass
+
 
 class ProjectInformation:
-
 
     def __init__(self) -> None:
         self.current_working_dir = os.getcwd()
@@ -50,19 +51,16 @@ class ProjectInformation:
         self.__readProjectInformation()
         self.printProjectInformation()
 
-
     def __terminateWithError(self, e):
         print(f"Error: {e}")
         print("Terminating...")
         sys.exit()
-
 
     def __parseSexpressionFromFile(self, file):
         with open(file, 'r', encoding='utf-8') as f:
             data = f.read()
             parsed_data = sexpdata.loads(data)
             return parsed_data
-
 
     def __readProjectFileNameFromCli(self, cli_args):
 
@@ -81,7 +79,6 @@ class ProjectInformation:
         else:
             raise ProjectInformationError(f"Project file '{cli_args.project_file}' seems to have an invalid format. Should be FILENAME.kicad_pro.")
 
-
     def __readProjectFileNameAutomatically(self):
         project_file_name = None
 
@@ -89,23 +86,21 @@ class ProjectInformation:
             if file.endswith(".kicad_pro"):
                 project_file_name = file
                 break
-        
+
         if project_file_name:
             return project_file_name
         else:
             raise ProjectInformationError(f"No kicad project file could be found.")
 
-
     def __constructSchematicFileName(self):
         if self.project_file_name:
             self.schematic_file_name = self.project_file_name.split(".")[0] + ".kicad_sch"
-            
+
             if not os.path.exists(os.path.join(os.getcwd(), self.schematic_file_name)):
                 raise ProjectInformationError(f"Error: Schematic file '{self.schematic_file_name}' doesn't exist.")
 
         else:
             raise ProjectInformationError(f"Project file name doesn't exist. Run the function 'findProjectFileName()' first.")
-
 
     def __constructPcbFileName(self):
         if self.project_file_name:
@@ -115,7 +110,6 @@ class ProjectInformation:
                 raise ProjectInformationError(f"Error: PCB file '{self.pcb_file_name}' doesn't exist.")
         else:
             raise ProjectInformationError(f"Project file name doesn't exist. Run the function 'findProjectFileName()' first.")
-
 
     def __getRevisionFromSexp(self, data):
         revision = None
@@ -132,9 +126,7 @@ class ProjectInformation:
                                             if str(title_block_element[0]) == "rev":
                                                 revision = title_block_element[1]
 
-
         return revision
-
 
     def __getCopperLayerInformationFromSexp(self, data):
         layers = []
@@ -151,7 +143,6 @@ class ProjectInformation:
 
         return layers
 
-
     def __readSchematicInformation(self):
         schematic_sexp_data = self.__parseSexpressionFromFile(self.schematic_file_name)
         revision = self.__getRevisionFromSexp(schematic_sexp_data)
@@ -160,7 +151,6 @@ class ProjectInformation:
             self.schematic_revision = revision
         else:
             raise ProjectInformationError("Revision information not found in schematic file.")
-
 
     def __readPcbInformation(self):
         pcb_sexp_data = self.__parseSexpressionFromFile(self.pcb_file_name)
@@ -177,11 +167,10 @@ class ProjectInformation:
         else:
             raise ProjectInformationError("Copper layer information not found in pcb file.")
 
-
     def __findProjectFileName(self):
 
         args = self.cli_arg_parser.parse_args()
-        
+
         try:
             if args.project_file:
                 self.project_file_name = self.__readProjectFileNameFromCli(args)
@@ -189,10 +178,9 @@ class ProjectInformation:
                 self.project_file_name = self.__readProjectFileNameAutomatically()
 
             return self.project_file_name
-            
+
         except ProjectInformationError as e:
             self.__terminateWithError(e)
-
 
     def __readProjectInformation(self):
         try:
@@ -204,21 +192,20 @@ class ProjectInformation:
 
             if self.schematic_revision is self.pcb_revision:
                 self.revision = self.schematic_revision
-            else:    
+            else:
                 raise ProjectInformationError(f"Revision of schematic '{self.schematic_revision}' and pcb '{self.pcb_revision}' don't match.")
 
         except ProjectInformationError as e:
             self.__terminateWithError(e)
 
-
     def printProjectInformation(self):
         print(r"""
 ======================= KiPFG ==============================
- ___  __        ___      ________    ________  ________     
-|\  \|\  \     |\  \    |\   __  \  |\  _____\|\   ____\    
-\ \  \/  /|_   \ \  \   \ \  \|\  \ \ \  \__/ \ \  \___|    
- \ \   ___  \   \ \  \   \ \   ____\ \ \   __\ \ \  \  ___  
-  \ \  \\ \  \   \ \  \   \ \  \___|  \ \  \_|  \ \  \|\  \ 
+ ___  __        ___      ________    ________  ________
+|\  \|\  \     |\  \    |\   __  \  |\  _____\|\   ____\
+\ \  \/  /|_   \ \  \   \ \  \|\  \ \ \  \__/ \ \  \___|
+ \ \   ___  \   \ \  \   \ \   ____\ \ \   __\ \ \  \  ___
+  \ \  \\ \  \   \ \  \   \ \  \___|  \ \  \_|  \ \  \|\  \
    \ \__\\ \__\   \ \__\   \ \__\      \ \__\    \ \_______\
     \|__| \|__|    \|__|    \|__|       \|__|     \|_______|
 
@@ -230,10 +217,11 @@ class ProjectInformation:
         print(f"Layer Names : {self.copper_layers[0]}")
         for layer in self.copper_layers[1:]:
             print(f"            : {layer}")
-            
+
         print()
 
-        print(f"Files:")
+        print("Files:")
         print(f"PRO  :'{self.project_file_name}'")
         print(f"SCH  :'{self.schematic_file_name}'")
         print(f"PCB  :'{self.pcb_file_name}'\n")
+
