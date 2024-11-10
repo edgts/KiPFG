@@ -13,3 +13,5 @@ Generates the following files:
 ## Info for me
 * Activate venv with `source kipfg/bin/activate`
 * Deactivate venv with `deactivate`
+* Install `libgtk-3-dev` from
+  https://github.com/wxWidgets/Phoenix?tab=readme-ov-file#prerequisites
