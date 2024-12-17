@@ -146,6 +146,7 @@ def exportDrc(input_file, revision):
             "--schematic-parity",
             "--format",
             "json",
+            "--severity-error",
             "--severity-warning",
             "--output",
             os.path.join(
