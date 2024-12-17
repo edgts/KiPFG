@@ -52,8 +52,12 @@ def exportPdfPcb(input_file, layers, revision):
         output_filename = pcb_name + '_R' + revision + '_' + layer + '.pdf'
         output = os.path.join(output_path, output_filename)
 
-        args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '-l']
-        args += [layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer,
+        if prin.drawing_sheet_file_name:
+            args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '--drawing-sheet', prin.drawing_sheet_file_name]
+        else:
+            args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt']
+
+        args += ['-l', layer + ",Edge.Cuts", '--define-var', 'LAYER=' + layer,
                  '--output', output, input_file]
 
         subprocess.call(args, stdout=subprocess.DEVNULL,
@@ -104,6 +108,7 @@ def exportErc(input_file, revision):
         "erc",
         "--format",
         "json",
+        "--severity-error",
         "--severity-warning",
         "--output",
         os.path.join(
@@ -381,19 +386,36 @@ def exportPdfSch(schematic_file_name, revision):
     if not os.path.isdir(output_path_pdf):
         os.makedirs(output_path_pdf)
 
-    args = [
-        "kicad-cli",
-        "sch",
-        "export",
-        "pdf",
-        "--output",
-        os.path.join(
-            os.getcwd(),
-            output_path_pdf,
-            project_name + "_R" + revision + "_SCH.pdf"
-        ),
-        schematic_file_name
-    ]
+    if prin.drawing_sheet_file_name:
+        args = [
+            "kicad-cli",
+            "sch",
+            "export",
+            "pdf",
+            "--drawing-sheet",
+            prin.drawing_sheet_file_name,
+            "--output",
+            os.path.join(
+                os.getcwd(),
+                output_path_pdf,
+                project_name + "_R" + revision + "_SCH.pdf"
+            ),
+            schematic_file_name
+        ]
+    else:
+        args = [
+            "kicad-cli",
+            "sch",
+            "export",
+            "pdf",
+            "--output",
+            os.path.join(
+                os.getcwd(),
+                output_path_pdf,
+                project_name + "_R" + revision + "_SCH.pdf"
+            ),
+            schematic_file_name
+        ]
 
     output = subprocess.call(
         args,

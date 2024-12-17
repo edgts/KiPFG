@@ -20,6 +20,7 @@ class ProjectInformation:
         self.schematic_revision = None
         self.pcb_revision = None
         self.revision = None
+        self.drawing_sheet_file_name = None
 
         self.cli_arg_parser = argparse.ArgumentParser(
             prog="KiPFG",
@@ -30,6 +31,13 @@ class ProjectInformation:
             '-p',
             '--project-file',
             help="KiCad project file",
+            type=str
+        )
+
+        self.cli_arg_parser.add_argument(
+            '-s',
+            '--drawing-sheet-file',
+            help="Drawing sheet file",
             type=str
         )
 
@@ -182,6 +190,18 @@ class ProjectInformation:
         except ProjectInformationError as e:
             self.__terminateWithError(e)
 
+    def __getDrawingSheetFileName(self):
+        args = self.cli_arg_parser.parse_args()
+
+        try:
+            if args.drawing_sheet_file:
+                if not os.path.exists(args.drawing_sheet_file):
+                    raise ProjectInformationError(f"Error: Drawing sheet file '{args.drawing_sheet_file}' not found.")
+                self.drawing_sheet_file_name = args.drawing_sheet_file
+
+        except ProjectInformationError as e:
+            self.__terminateWithError(e)
+
     def __readProjectInformation(self):
         try:
             self.__constructSchematicFileName()
@@ -194,6 +214,8 @@ class ProjectInformation:
                 self.revision = self.schematic_revision
             else:
                 raise ProjectInformationError(f"Revision of schematic '{self.schematic_revision}' and pcb '{self.pcb_revision}' don't match.")
+
+            self.__getDrawingSheetFileName()
 
         except ProjectInformationError as e:
             self.__terminateWithError(e)
