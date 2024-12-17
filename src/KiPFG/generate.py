@@ -363,6 +363,7 @@ def exportStep(input_file, revision):
         "--force",
         "--drill-origin",
         "--no-optimize-step",
+        "--subst-models",
         "--output",
         os.path.join(
             os.getcwd(),
