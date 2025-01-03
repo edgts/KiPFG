@@ -5,11 +5,13 @@ import re
 import sys
 import subprocess
 import fitz
+from datetime import datetime
 
 from project_information import ProjectInformation
+from post_process import *
 
 output_path_pdf = "PDF"
-output_path_gerber = "FAB"
+output_path_gerber = "FAB_tmp"
 output_path_bom = "BOM"
 output_path_3d = "3D"
 output_path_rule_checks = "RCH"
@@ -53,7 +55,8 @@ def exportPdfPcb(input_file, layers, revision):
         output = os.path.join(output_path, output_filename)
 
         if prin.drawing_sheet_file_name:
-            args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt', '--drawing-sheet', prin.drawing_sheet_file_name]
+            args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt',
+                    '--drawing-sheet', prin.drawing_sheet_file_name]
         else:
             args = ['kicad-cli', 'pcb', 'export', 'pdf', '--ibt']
 
@@ -533,4 +536,114 @@ exportPickAndPlace(prin.pcb_file_name, prin.revision)
 exportStep(prin.pcb_file_name, prin.revision)
 # exportAsm(prin.pcb_file_name, prin.revision)
 
-print("======================= Success ===========================\n")
+print("======================= Post-Processing ===========================\n")
+
+today = datetime.now()
+now = today.strftime("%Y%m%d_%H%M%S")
+
+cam_path = "CAM"
+fab_path = "FAB"
+pdf_path = "PDF"
+project_path = "PRJ"
+step_path = "3D"
+
+# CAM Files (Gerber)
+print("* Process CAM directory...", end="")
+create_directory(cam_path)
+copy_files(output_path_gerber, cam_path)
+delete_files_and_directories(
+    [os.path.join(cam_path, "*.csv"),os.path.join(cam_path, "*_Fab.gbr")]
+)
+
+create_archive(
+    os.path.join(
+        cam_path,
+        project_name + "_R" + prin.revision + "_GERBER_" + now + ".zip"
+    ),
+    [
+        os.path.join(cam_path, "*.gbr"),
+        os.path.join(cam_path, "*.drl"),
+        os.path.join(cam_path, "*.gbrjob")
+    ]
+)
+
+print("Done.")
+
+# FAB files
+print("\n* Process FAB directory...", end="")
+create_directory(fab_path)
+copy_files(cam_path, fab_path)
+
+delete_files_and_directories(
+    [os.path.join(fab_path, "*")], [os.path.join(fab_path, "*.zip")]
+)
+
+copy_files(output_path_bom, fab_path)
+copy_files(output_path_pdf, fab_path)
+
+delete_files_and_directories(
+    [os.path.join(fab_path, "*PCB.pdf"), os.path.join(fab_path, "*SCH.pdf")]
+)
+copy_files_and_directories(
+    output_path_gerber, fab_path, 
+    ["*-pos.csv", "*_Fab.gbr"]
+)
+
+create_archive(
+    os.path.join(
+        fab_path,
+        project_name + "_R" + prin.revision + "_FAB_" + now + ".zip"
+    ),
+    [os.path.join(fab_path, "*-pos.csv"), os.path.join(fab_path, "*_Fab.gbr")]
+)
+
+delete_files_and_directories(
+    [os.path.join(fab_path, "*-pos.csv"), os.path.join(fab_path, "*_Fab.gbr")]
+)
+
+create_archive(
+    os.path.join(
+        fab_path,
+        project_name + "_R" + prin.revision + "_FRT_" + now + ".zip"
+    ),
+    [
+        os.path.join(fab_path, "*.csv"),
+        os.path.join(fab_path, "*.pdf"),
+        os.path.join(fab_path, "*FAB*.zip"),
+        os.path.join(fab_path, "*GERBER*.zip")
+    ]
+)
+
+delete_files_and_directories(
+    [
+        os.path.join(fab_path, "*.csv"),
+        os.path.join(fab_path, "*_Fab.gbr"),
+        os.path.join(fab_path, "*.pdf"),
+        os.path.join(fab_path, "*FAB*.zip")
+    ]
+)
+
+delete_directory(output_path_gerber)
+print("Done.")
+
+# PDF files
+print("\n* Process PDF directory...", end="")
+delete_files_and_directories([os.path.join(output_path_pdf, "*.Fab.pdf")])
+print("Done.")
+
+# PRJ Files
+print("\n* Process PDF directory...", end="")
+create_directory(project_path)
+
+copy_files_and_directories(
+    os.getcwd(),
+    project_path,
+    ["*.kicad_pro", "*.kicad_pcb", "*.kicad_sch"]
+)
+
+delete_directory(os.path.join(os.getcwd(), project_path, project_path))
+insert_string_before_extension(project_path, "_R" + prin.revision)
+print("Done.")
+
+
+print("\n======================= Success ===========================\n")
