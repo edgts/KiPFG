@@ -146,4 +146,3 @@ def insert_string_before_extension(directory, insert_string):
             old_path = os.path.join(directory, filename)
             new_path = os.path.join(directory, new_name)
             os.rename(old_path, new_path)
-            print(f"Renamed: {filename} -> {new_name}")
