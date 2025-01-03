@@ -536,7 +536,7 @@ exportPickAndPlace(prin.pcb_file_name, prin.revision)
 exportStep(prin.pcb_file_name, prin.revision)
 # exportAsm(prin.pcb_file_name, prin.revision)
 
-print("======================= Post-Processing ===========================\n")
+print("====================== Post-Processing =====================\n")
 
 today = datetime.now()
 now = today.strftime("%Y%m%d_%H%M%S")
