@@ -476,7 +476,7 @@ def exportBom(schematic_file_name, revision):
         "--labels",
         ",".join(labels_array),
         "--group-by",
-        "Value,Footprint,fit_field",
+        "Value,Footprint,Order Number,fit_field",
         "--output",
         os.path.join(
             os.getcwd(),
